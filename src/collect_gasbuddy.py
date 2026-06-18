@@ -93,6 +93,9 @@ NOISE_TERMS = {
     "gasbuddy", "loading", "directions",
 }
 
+# DEBUG: directory for raw HTML dumps (one file per district per run)
+DEBUG_HTML_DIR = RETAIL_DIR.parent / "logs"
+
 
 def build_driver():
     if not SELENIUM_AVAILABLE:
@@ -107,7 +110,7 @@ def build_driver():
         options.add_argument(f"--user-agent={USER_AGENT}")
         service = ChromeService(ChromeDriverManager().install())
         driver = webdriver.Chrome(service=service, options=options)
-        driver.set_page_load_timeout(45)
+        driver.set_page_load_timeout(60)
         return driver
     except Exception as exc:
         log_message(
@@ -118,30 +121,50 @@ def build_driver():
         return None
 
 
-def fetch_html_with_selenium(driver, url: str) -> str:
+def fetch_html_with_selenium(driver, url: str, area: str = "", debug_dir: Path = None) -> str:
     driver.get(url)
-    # FIX (a): Wait for body first, then wait explicitly for station cards to render.
-    # Replaces the old sleep(2) + 4 generic scrolls (~8s) with a targeted wait.
+    # Wait for body to confirm page started loading
     WebDriverWait(driver, 20).until(EC.presence_of_element_located((By.TAG_NAME, "body")))
     try:
-        # Wait up to 30s for at least one station card to appear in the DOM
-        WebDriverWait(driver, 30).until(
+        # DEBUG FIX: Increased from 30s to 45s to rule out timing issues
+        WebDriverWait(driver, 45).until(
             EC.presence_of_element_located(
                 (By.CSS_SELECTOR, "[class*='stationListItem___']")
             )
         )
     except Exception:
-        # Fallback sleep if the selector never appears (e.g. zero results page)
+        # DEBUG FIX: Increased fallback sleep from 5s to 8s
         log_message(
-            f"Station cards not found via WebDriverWait for {url}, using sleep fallback.",
+            f"Station cards not found via WebDriverWait for {url}, using sleep(8) fallback.",
             level="WARNING",
             log_name="retail_collection.log",
         )
-        time.sleep(5)
-    # One final scroll to trigger any lazy-loaded cards below the fold
+        time.sleep(8)
+    # Scroll to trigger any lazy-loaded cards below the fold
     driver.execute_script("window.scrollTo(0, document.body.scrollHeight);")
     time.sleep(2)
-    return driver.page_source
+    html = driver.page_source
+
+    # DEBUG: Save raw HTML to data/raw/logs/ for inspection
+    if debug_dir is not None and area:
+        try:
+            debug_dir.mkdir(parents=True, exist_ok=True)
+            ts = timestamp_for_filename()
+            area_slug = area.lower().replace(" ", "_")
+            debug_path = debug_dir / f"debug_html_{area_slug}_{ts}.html"
+            debug_path.write_text(html, encoding="utf-8")
+            log_message(
+                f"DEBUG: Saved raw HTML for {area} ({len(html)} chars) to {debug_path.name}",
+                log_name="retail_collection.log",
+            )
+        except Exception as exc:
+            log_message(
+                f"DEBUG: Could not save HTML for {area}: {exc}",
+                level="WARNING",
+                log_name="retail_collection.log",
+            )
+
+    return html
 
 
 def fetch_html_with_requests(url: str) -> str:
@@ -327,22 +350,17 @@ def parse_station_records_from_apollo_state(
 
 
 # FIX (b): New direct DOM parser targeting GasBuddy's current CSS module class names.
-# Uses partial class matching ([class*='...']) to be resilient to CSS hash changes.
 def parse_station_records_from_dom(
     html: str, area: str, source_url: str, collected_at: str
 ) -> list[dict]:
     """
     Extracts station data directly from GasBuddy's rendered DOM using stable
     CSS module class name fragments. Each station card has a container whose
-    class contains 'stationListItem___'. Within each card:
-      - Station name: heading tag with class containing 'stationNameHeader'
-      - Address:      div with class containing 'address___' and 'StationDisplay'
-      - Price:        span with class containing 'StationDisplayPrice-module__price___'
+    class contains 'stationListItem___'.
     """
     soup = BeautifulSoup(html, "html.parser")
     records: list[dict] = []
 
-    # Each station card: exactly one div per station with class containing 'stationListItem___'
     station_cards = soup.find_all(
         "div",
         class_=lambda c: c and "stationListItem___" in " ".join(c)
@@ -364,7 +382,6 @@ def parse_station_records_from_dom(
 
     for card in station_cards:
         try:
-            # Station name: heading with class containing 'stationNameHeader'
             name_tag = card.find(
                 lambda t: t.name in ("h2", "h3", "h4")
                 and any("stationNameHeader" in c for c in t.get("class", []))
@@ -373,7 +390,6 @@ def parse_station_records_from_dom(
                 name_tag.get_text(strip=True) if name_tag else ""
             )
 
-            # Address: div with class containing both 'address___' and 'StationDisplay'
             addr_tag = card.find(
                 "div",
                 class_=lambda c: c and any(
@@ -387,13 +403,10 @@ def parse_station_records_from_dom(
                     for line in addr_tag.get_text("\n", strip=True).splitlines()
                     if normalize_text(line)
                 ]
-                # addr_lines[0] = street line e.g. "278 Greenpoint Ave"
-                # addr_lines[1] = "Brooklyn, NY"
                 address = addr_lines[0] if addr_lines else ""
             else:
                 address = ""
 
-            # Price: span with class containing 'StationDisplayPrice-module__price___'
             price_tag = card.find(
                 "span",
                 class_=lambda c: c and any(
@@ -414,7 +427,6 @@ def parse_station_records_from_dom(
                 price = None
 
             if not station_name or price is None:
-                # Skip cards without a valid name or price
                 continue
 
             records.append(
@@ -534,11 +546,12 @@ def parse_station_records_from_html(
 
 
 def collect_area_records(
-    area: str, url: str, driver, collected_at: str
+    area: str, url: str, driver, collected_at: str, debug_dir: Path = None
 ) -> list[dict]:
     if driver is not None:
         try:
-            html = fetch_html_with_selenium(driver, url)
+            # DEBUG: pass area + debug_dir so HTML is saved to data/raw/logs/
+            html = fetch_html_with_selenium(driver, url, area=area, debug_dir=debug_dir)
             records = parse_station_records_from_html(html, area, url, collected_at)
             if records:
                 return records
@@ -576,6 +589,10 @@ def collect_retail_snapshot(
     output_dir: Path = RETAIL_DIR,
 ) -> tuple[pd.DataFrame, dict]:
     ensure_directories([output_dir])
+    # Ensure debug HTML dir exists
+    debug_dir = DEBUG_HTML_DIR
+    debug_dir.mkdir(parents=True, exist_ok=True)
+
     collected_at = timestamp_iso()
     snapshot_path = output_dir / f"{OUTPUT_STEM}_{timestamp_for_filename()}.csv"
     all_records: list[dict] = []
@@ -588,7 +605,7 @@ def collect_retail_snapshot(
         )
     try:
         for area, url in area_urls.items():
-            records = collect_area_records(area, url, driver, collected_at)
+            records = collect_area_records(area, url, driver, collected_at, debug_dir=debug_dir)
             all_records.extend(records)
             log_message(
                 f"{area}: collected {len(records)} candidate station records from {url}",
