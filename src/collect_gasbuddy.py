@@ -41,11 +41,13 @@ except Exception:
     WebDriverWait = None
     SELENIUM_AVAILABLE = False
 
+# FIX (c): Added Bronx to AREA_URLS
 AREA_URLS = {
     "Manhattan": "https://www.gasbuddy.com/gasprices/new-york/manhattan",
     "Brooklyn": "https://www.gasbuddy.com/gasprices/new-york/brooklyn",
     "Queens": "https://www.gasbuddy.com/gasprices/new-york/queens",
     "Staten Island": "https://www.gasbuddy.com/gasprices/new-york/staten-island",
+    "Bronx": "https://www.gasbuddy.com/gasprices/new-york/bronx",
 }
 
 SNAPSHOT_COLUMNS = [
@@ -118,11 +120,27 @@ def build_driver():
 
 def fetch_html_with_selenium(driver, url: str) -> str:
     driver.get(url)
+    # FIX (a): Wait for body first, then wait explicitly for station cards to render.
+    # Replaces the old sleep(2) + 4 generic scrolls (~8s) with a targeted wait.
     WebDriverWait(driver, 20).until(EC.presence_of_element_located((By.TAG_NAME, "body")))
+    try:
+        # Wait up to 30s for at least one station card to appear in the DOM
+        WebDriverWait(driver, 30).until(
+            EC.presence_of_element_located(
+                (By.CSS_SELECTOR, "[class*='stationListItem___']")
+            )
+        )
+    except Exception:
+        # Fallback sleep if the selector never appears (e.g. zero results page)
+        log_message(
+            f"Station cards not found via WebDriverWait for {url}, using sleep fallback.",
+            level="WARNING",
+            log_name="retail_collection.log",
+        )
+        time.sleep(5)
+    # One final scroll to trigger any lazy-loaded cards below the fold
+    driver.execute_script("window.scrollTo(0, document.body.scrollHeight);")
     time.sleep(2)
-    for _ in range(4):
-        driver.execute_script("window.scrollTo(0, document.body.scrollHeight);")
-        time.sleep(1.5)
     return driver.page_source
 
 
@@ -308,6 +326,119 @@ def parse_station_records_from_apollo_state(
     return deduplicate_records(records)
 
 
+# FIX (b): New direct DOM parser targeting GasBuddy's current CSS module class names.
+# Uses partial class matching ([class*='...']) to be resilient to CSS hash changes.
+def parse_station_records_from_dom(
+    html: str, area: str, source_url: str, collected_at: str
+) -> list[dict]:
+    """
+    Extracts station data directly from GasBuddy's rendered DOM using stable
+    CSS module class name fragments. Each station card has a container whose
+    class contains 'stationListItem___'. Within each card:
+      - Station name: heading tag with class containing 'stationNameHeader'
+      - Address:      div with class containing 'address___' and 'StationDisplay'
+      - Price:        span with class containing 'StationDisplayPrice-module__price___'
+    """
+    soup = BeautifulSoup(html, "html.parser")
+    records: list[dict] = []
+
+    # Each station card: exactly one div per station with class containing 'stationListItem___'
+    station_cards = soup.find_all(
+        "div",
+        class_=lambda c: c and "stationListItem___" in " ".join(c)
+    )
+
+    if not station_cards:
+        log_message(
+            f"{area}: DOM parser found no station cards "
+            f"(selector 'stationListItem___' matched 0 elements).",
+            level="WARNING",
+            log_name="retail_collection.log",
+        )
+        return []
+
+    log_message(
+        f"{area}: DOM parser found {len(station_cards)} station card(s).",
+        log_name="retail_collection.log",
+    )
+
+    for card in station_cards:
+        try:
+            # Station name: heading with class containing 'stationNameHeader'
+            name_tag = card.find(
+                lambda t: t.name in ("h2", "h3", "h4")
+                and any("stationNameHeader" in c for c in t.get("class", []))
+            )
+            station_name = normalize_text(
+                name_tag.get_text(strip=True) if name_tag else ""
+            )
+
+            # Address: div with class containing both 'address___' and 'StationDisplay'
+            addr_tag = card.find(
+                "div",
+                class_=lambda c: c and any(
+                    "address___" in part and "StationDisplay" in part
+                    for part in (c if isinstance(c, list) else c.split())
+                )
+            )
+            if addr_tag:
+                addr_lines = [
+                    normalize_text(line)
+                    for line in addr_tag.get_text("\n", strip=True).splitlines()
+                    if normalize_text(line)
+                ]
+                # addr_lines[0] = street line e.g. "278 Greenpoint Ave"
+                # addr_lines[1] = "Brooklyn, NY"
+                address = addr_lines[0] if addr_lines else ""
+            else:
+                address = ""
+
+            # Price: span with class containing 'StationDisplayPrice-module__price___'
+            price_tag = card.find(
+                "span",
+                class_=lambda c: c and any(
+                    "StationDisplayPrice-module__price___" in part
+                    for part in (c if isinstance(c, list) else c.split())
+                )
+            )
+            price_text = (
+                price_tag.get_text(strip=True).replace("$", "").strip()
+                if price_tag
+                else ""
+            )
+            try:
+                price = float(price_text)
+                if not (1.0 <= price <= 8.0):
+                    price = None
+            except (ValueError, TypeError):
+                price = None
+
+            if not station_name or price is None:
+                # Skip cards without a valid name or price
+                continue
+
+            records.append(
+                {
+                    "station_id": generate_station_id(station_name, address),
+                    "station_name": station_name,
+                    "address": address,
+                    "area": area,
+                    "price_regular": price,
+                    "timestamp": collected_at,
+                    "source_url": source_url,
+                }
+            )
+        except Exception as exc:
+            log_message(
+                f"{area}: error parsing station card ({exc})",
+                level="WARNING",
+                log_name="retail_collection.log",
+            )
+            continue
+
+    return deduplicate_records(records)
+
+
 def collect_candidate_blocks(soup: BeautifulSoup) -> list[str]:
     blocks: list[str] = []
     seen: set[str] = set()
@@ -322,8 +453,8 @@ def collect_candidate_blocks(soup: BeautifulSoup) -> list[str]:
                 continue
             seen.add(key)
             blocks.append(text)
-        if len(blocks) >= 5:
-            return blocks
+            if len(blocks) >= 5:
+                return blocks
     for tag in soup.find_all(["article", "li", "section", "div"]):
         text = tag.get_text("\n", strip=True)
         normalized = normalize_text(text)
@@ -372,14 +503,23 @@ def parse_station_records_from_raw_text(
     return deduplicate_records(records)
 
 
+# FIX (c): Reordered pipeline - DOM parser first, then Apollo State, then generic text.
 def parse_station_records_from_html(
     html: str, area: str, source_url: str, collected_at: str
 ) -> list[dict]:
+    # Strategy 1: Direct DOM parsing with specific CSS module selectors (PRIMARY)
+    dom_records = parse_station_records_from_dom(html, area, source_url, collected_at)
+    if dom_records:
+        return dom_records
+
+    # Strategy 2: Apollo State JSON (FALLBACK)
     structured_records = parse_station_records_from_apollo_state(
         html, area, source_url, collected_at
     )
     if structured_records:
         return structured_records
+
+    # Strategy 3: Generic block/text parsing (LAST RESORT)
     soup = BeautifulSoup(html, "html.parser")
     records: list[dict] = []
     for block_text in collect_candidate_blocks(soup):
@@ -388,6 +528,7 @@ def parse_station_records_from_html(
             records.append(record)
     if records:
         return deduplicate_records(records)
+
     raw_text = soup.get_text("\n", strip=True)
     return parse_station_records_from_raw_text(raw_text, area, source_url, collected_at)
 
