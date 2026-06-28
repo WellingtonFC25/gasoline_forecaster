@@ -1,0 +1,6 @@
+station_id,station_name,address,area,price_regular,timestamp,source_url
+3741d5c36385340f,DataFeed,,Manhattan,4.29,2026-06-28T21:51:32,https://www.gasbuddy.com/gasprices/new-york/manhattan
+b9de516132d0f973,JimNYC,,Manhattan,5.49,2026-06-28T21:51:32,https://www.gasbuddy.com/gasprices/new-york/manhattan
+5d6bf95bcf426e3e,TGNYC,,Manhattan,5.59,2026-06-28T21:51:32,https://www.gasbuddy.com/gasprices/new-york/manhattan
+6aad3194538b7fb5,eschenkel,,Manhattan,3.99,2026-06-28T21:51:32,https://www.gasbuddy.com/gasprices/new-york/manhattan
+c8294efefd01ad25,janbajamar,,Manhattan,4.19,2026-06-28T21:51:32,https://www.gasbuddy.com/gasprices/new-york/manhattan
