@@ -1,0 +1,11 @@
+station_id,station_name,address,area,price_regular,timestamp,source_url
+c9bf5edaaa6d00db,Empty Star Icon,1450 Atlantic Ave,Brooklyn,2.1,2026-08-07T00:59:20,https://www.gasbuddy.com/gasprices/new-york/brooklyn
+78c67a68ee47eddb,Privacy Policy,14241 Dallas Parkway,Brooklyn,2.1,2026-08-07T00:59:20,https://www.gasbuddy.com/gasprices/new-york/brooklyn
+5ebf56e8a4123a51,Buddy_7krcfhcb,,Manhattan,4.19,2026-08-07T00:59:20,https://www.gasbuddy.com/gasprices/new-york/manhattan
+1b47e844f75093b5,Buddy_cxuywyva,,Manhattan,6.29,2026-08-07T00:59:20,https://www.gasbuddy.com/gasprices/new-york/manhattan
+3741d5c36385340f,DataFeed,,Manhattan,4.63,2026-08-07T00:59:20,https://www.gasbuddy.com/gasprices/new-york/manhattan
+a78a4e052a2f7111,notredame_nyc,,Manhattan,5.59,2026-08-07T00:59:20,https://www.gasbuddy.com/gasprices/new-york/manhattan
+6157c985c4b8514b,visitor,,Manhattan,6.0,2026-08-07T00:59:20,https://www.gasbuddy.com/gasprices/new-york/manhattan
+fbb27aab4d4749a7,vix1976,,Manhattan,4.09,2026-08-07T00:59:20,https://www.gasbuddy.com/gasprices/new-york/manhattan
+f0bca150a5c525df,Empty Star Icon,03 N Conduit Ave,Queens,2.1,2026-08-07T00:59:20,https://www.gasbuddy.com/gasprices/new-york/queens
+7e8af346798cdaf5,Full Star Icon,1842 Victory Blvd,Staten Island,2.1,2026-08-07T00:59:20,https://www.gasbuddy.com/gasprices/new-york/staten-island
