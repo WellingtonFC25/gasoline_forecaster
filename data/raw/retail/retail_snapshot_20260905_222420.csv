@@ -1,0 +1,11 @@
+station_id,station_name,address,area,price_regular,timestamp,source_url
+5d96321127399d86,Empty Star Icon,1760 Flatbush Ave,Brooklyn,2.1,2026-09-05T22:24:20,https://www.gasbuddy.com/gasprices/new-york/brooklyn
+78c67a68ee47eddb,Privacy Policy,14241 Dallas Parkway,Brooklyn,2.1,2026-09-05T22:24:20,https://www.gasbuddy.com/gasprices/new-york/brooklyn
+3741d5c36385340f,DataFeed,,Manhattan,4.19,2026-09-05T22:24:20,https://www.gasbuddy.com/gasprices/new-york/manhattan
+338bdba92c65e1e6,Owner,,Manhattan,5.59,2026-09-05T22:24:20,https://www.gasbuddy.com/gasprices/new-york/manhattan
+3015accbf614737d,blader3,,Manhattan,4.64,2026-09-05T22:24:20,https://www.gasbuddy.com/gasprices/new-york/manhattan
+2a33b2f98a0b0b1f,deniseatarver,,Manhattan,4.68,2026-09-05T22:24:20,https://www.gasbuddy.com/gasprices/new-york/manhattan
+6c3694af15fa470d,nyc1977,,Manhattan,4.29,2026-09-05T22:24:20,https://www.gasbuddy.com/gasprices/new-york/manhattan
+e705e4013d8386da,Half-filled Star Icon,39 Merrick Blvd,Queens,2.1,2026-09-05T22:24:20,https://www.gasbuddy.com/gasprices/new-york/queens
+3d93847f7ce95ff1,Full Star Icon,11 Morningstar Rd,Staten Island,3.78,2026-09-05T22:24:20,https://www.gasbuddy.com/gasprices/new-york/staten-island
+4c41912207cd2fcf,Half-filled Star Icon,2975 Richmond Ave,Staten Island,3.78,2026-09-05T22:24:20,https://www.gasbuddy.com/gasprices/new-york/staten-island
