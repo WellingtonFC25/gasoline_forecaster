@@ -1,0 +1,9 @@
+station_id,station_name,address,area,price_regular,timestamp,source_url
+d5e0fde8c3f6b9cb,Half-filled Star Icon,2816 Atlantic Ave,Brooklyn,2.1,2026-10-19T23:59:06,https://www.gasbuddy.com/gasprices/new-york/brooklyn
+78c67a68ee47eddb,Privacy Policy,14241 Dallas Parkway,Brooklyn,2.1,2026-10-19T23:59:06,https://www.gasbuddy.com/gasprices/new-york/brooklyn
+3741d5c36385340f,DataFeed,,Manhattan,4.54,2026-10-19T23:59:06,https://www.gasbuddy.com/gasprices/new-york/manhattan
+338bdba92c65e1e6,Owner,,Manhattan,5.89,2026-10-19T23:59:06,https://www.gasbuddy.com/gasprices/new-york/manhattan
+2df900b3047fa0d1,sydb7,,Manhattan,4.69,2026-10-19T23:59:06,https://www.gasbuddy.com/gasprices/new-york/manhattan
+e6ec8e54497d07b9,Empty Star Icon,10409 Atlantic Ave,Queens,2.1,2026-10-19T23:59:06,https://www.gasbuddy.com/gasprices/new-york/queens
+3d93847f7ce95ff1,Full Star Icon,11 Morningstar Rd,Staten Island,3.78,2026-10-19T23:59:06,https://www.gasbuddy.com/gasprices/new-york/staten-island
+07610671fe52bb99,Half-filled Star Icon,4275 AMBOY RD,Staten Island,3.78,2026-10-19T23:59:06,https://www.gasbuddy.com/gasprices/new-york/staten-island
